@@ -5,7 +5,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "deploy": "node deploy-commands.js"
+    "deploy": "node deploy-commands.js",
+    "push": "git add . && git commit -m \"auto update\" && git push"
   },
   "dependencies": {
     "discord.js": "^14.15.3",
