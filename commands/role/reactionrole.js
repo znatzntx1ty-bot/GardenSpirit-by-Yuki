@@ -1,32 +1,45 @@
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { Events } = require("discord.js");
+const config = require("../config.json");
 
-module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("reactionrole")
-    .setDescription("🎭 สร้างข้อความสำหรับกดอีโมจิรับยศ"),
+module.exports = (client) => {
+  client.on(Events.MessageReactionAdd, async (reaction, user) => {
+    if (user.bot) return;
+    if (reaction.partial) await reaction.fetch();
 
-  async execute(interaction) {
-    const embed = new EmbedBuilder()
-      .setColor("#ffd166")
-      .setTitle("🎮 รับยศเกมของคุณได้ที่นี่!")
-      .setDescription(
-        "เลือกเกมที่คุณเล่นบ่อยโดยการกดอีโมจิ 👇\n\n" +
-        "🎮 - **Free Fire**\n" +
-        "⚔️ - **ROV**\n" +
-        "🧩 - **Roblox**\n\n" +
-        "*(สามารถเลือกได้เพียง 1 เกมเท่านั้น)*"
-      )
-      .setFooter({ text: "GardenSpirit • Reaction Roles" })
-      .setTimestamp();
+    // จำกัดให้ทำงานเฉพาะช่องที่กำหนด (ถ้ามี)
+    if (config.allowedChannelId && reaction.message.channel.id !== config.allowedChannelId) return;
 
-    const message = await interaction.reply({
-      embeds: [embed],
-      fetchReply: true,
-    });
+    const emojiKey = reaction.emoji.id
+      ? `<:${reaction.emoji.name}:${reaction.emoji.id}>`
+      : reaction.emoji.name;
 
-    // เพิ่มอีโมจิให้กับข้อความ
-    await message.react("🎮");
-    await message.react("⚔️");
-    await message.react("🧩");
-  },
+    const roleId = config.reactionRoles[emojiKey];
+    if (!roleId) return;
+
+    const member = await reaction.message.guild.members.fetch(user.id);
+
+    // 🔁 ลบยศเก่าก่อน
+    for (const id of Object.values(config.reactionRoles)) {
+      if (member.roles.cache.has(id)) await member.roles.remove(id);
+    }
+
+    await member.roles.add(roleId);
+    console.log(`${member.user.tag} รับยศใหม่`);
+  });
+
+  client.on(Events.MessageReactionRemove, async (reaction, user) => {
+    if (user.bot) return;
+    if (reaction.partial) await reaction.fetch();
+
+    const emojiKey = reaction.emoji.id
+      ? `<:${reaction.emoji.name}:${reaction.emoji.id}>`
+      : reaction.emoji.name;
+
+    const roleId = config.reactionRoles[emojiKey];
+    if (!roleId) return;
+
+    const member = await reaction.message.guild.members.fetch(user.id);
+    await member.roles.remove(roleId);
+    console.log(`${member.user.tag} ลบยศออก`);
+  });
 };
