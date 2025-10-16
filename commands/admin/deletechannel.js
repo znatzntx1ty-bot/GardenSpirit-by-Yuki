@@ -4,6 +4,8 @@ const {
   ChannelType,
   StringSelectMenuBuilder,
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ComponentType,
 } = require("discord.js");
 
@@ -21,10 +23,14 @@ module.exports = {
       });
     }
 
-    // 🧠 ดึงเฉพาะ 25 ห้องแรก เพื่อไม่ให้ Discord พัง
-    const textChannels = interaction.guild.channels.cache
+    // ✅ ดึงข้อมูล guild ใหม่ล่าสุด (เห็นห้องใหม่ทันที)
+    const freshGuild = await interaction.client.guilds.fetch(interaction.guildId);
+    const channels = await freshGuild.channels.fetch();
+
+    // ✅ ดึงเฉพาะช่องข้อความ (จำกัด 25 ช่องเพื่อป้องกัน error)
+    const textChannels = Array.from(channels.values())
       .filter(ch => ch.type === ChannelType.GuildText)
-      .first(25)
+      .slice(0, 25)
       .map(ch => ({
         label: `#${ch.name}`,
         value: ch.id,
@@ -47,7 +53,7 @@ module.exports = {
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
     const replyMsg = await interaction.reply({
-      content: "🧹 โปรดเลือกช่องที่คุณต้องการลบ (เลือกได้หลายช่อง):",
+      content: "🧹 โปรดเลือกช่องที่ต้องการลบ (เลือกได้หลายช่อง):",
       components: [row],
       ephemeral: false,
     });
@@ -66,32 +72,88 @@ module.exports = {
       }
 
       const selectedIds = selectInteraction.values;
-      const deleted = [];
-      const failed = [];
+      const selectedChannels = selectedIds.map(id => {
+        const ch = channels.get(id);
+        return ch ? `#${ch.name}` : "ช่องไม่พบ";
+      });
 
-      await selectInteraction.deferReply({ ephemeral: false });
+      // ✅ ปุ่มยืนยัน / ยกเลิก
+      const confirmBtn = new ButtonBuilder()
+        .setCustomId("confirm_delete")
+        .setLabel("✅ ยืนยันลบ")
+        .setStyle(ButtonStyle.Danger);
 
-      for (const id of selectedIds) {
-        const ch = interaction.guild.channels.cache.get(id);
-        if (!ch) continue;
+      const cancelBtn = new ButtonBuilder()
+        .setCustomId("cancel_delete")
+        .setLabel("❌ ยกเลิก")
+        .setStyle(ButtonStyle.Secondary);
 
-        try {
-          await ch.delete(`Deleted by ${interaction.user.tag}`);
-          deleted.push(`#${ch.name}`);
-        } catch (err) {
-          console.error(`❌ ลบ ${ch.name} ไม่ได้:`, err);
-          failed.push(`#${ch.name}`);
+      const buttonRow = new ActionRowBuilder().addComponents(confirmBtn, cancelBtn);
+
+      await selectInteraction.reply({
+        content: `⚠️ คุณแน่ใจหรือไม่ว่าจะลบช่องต่อไปนี้?\n\n${selectedChannels.join("\n")}`,
+        components: [buttonRow],
+        ephemeral: false,
+      });
+
+      const buttonCollector = selectInteraction.channel.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 20000,
+      });
+
+      buttonCollector.on("collect", async btnInteraction => {
+        if (btnInteraction.user.id !== interaction.user.id)
+          return btnInteraction.reply({
+            content: "คุณไม่ได้เป็นคนสั่งคำสั่งนี้",
+            ephemeral: true,
+          });
+
+        if (btnInteraction.customId === "confirm_delete") {
+          const deleted = [];
+          const failed = [];
+
+          for (const id of selectedIds) {
+            const ch = channels.get(id);
+            if (!ch) continue;
+            try {
+              await ch.delete(`Deleted by ${interaction.user.tag}`);
+              deleted.push(`#${ch.name}`);
+            } catch (err) {
+              console.error(`❌ ลบ ${ch.name} ไม่ได้:`, err);
+              failed.push(`#${ch.name}`);
+            }
+          }
+
+          let result = "";
+          if (deleted.length > 0)
+            result += `✅ ลบสำเร็จ: ${deleted.join(", ")}\n`;
+          if (failed.length > 0)
+            result += `⚠️ ลบไม่สำเร็จ: ${failed.join(", ")}\n`;
+          if (result === "") result = "⚠️ ไม่มีช่องใดถูกลบ";
+
+          await btnInteraction.update({
+            content: result,
+            components: [],
+          });
+          buttonCollector.stop();
         }
-      }
 
-      let result = "";
-      if (deleted.length > 0) result += `✅ ลบสำเร็จ: ${deleted.join(", ")}\n`;
-      if (failed.length > 0) result += `⚠️ ลบไม่สำเร็จ: ${failed.join(", ")}\n`;
-      if (result === "") result = "⚠️ ไม่มีช่องใดถูกลบ";
+        if (btnInteraction.customId === "cancel_delete") {
+          await btnInteraction.update({
+            content: "❌ ยกเลิกการลบช่องแล้ว",
+            components: [],
+          });
+          buttonCollector.stop();
+        }
+      });
 
-      await selectInteraction.editReply({
-        content: result,
-        components: [],
+      buttonCollector.on("end", async () => {
+        try {
+          await selectInteraction.editReply({
+            components: [],
+            content: "⌛ หมดเวลายืนยัน (ใช้ /deletechannel ใหม่เพื่อเริ่มอีกครั้ง)",
+          });
+        } catch {}
       });
     });
 
@@ -101,7 +163,7 @@ module.exports = {
           components: [],
           content: "⌛ หมดเวลาการเลือกช่องแล้ว (ใช้ /deletechannel ใหม่เพื่อเริ่มอีกครั้ง)",
         });
-      } catch (e) {}
+      } catch {}
     });
   },
 };
