@@ -3,79 +3,65 @@ const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require("disco
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("deletechannel")
-    .setDescription("🗑️ เลือกลบช่องได้ (สูงสุด 5 ช่อง)")
+    .setDescription("🗑️ เลือกช่องที่จะลบ (เลือกได้สูงสุด 5 ช่อง)")
+    .addChannelOption(option =>
+      option
+        .setName("channel1")
+        .setDescription("เลือกช่องที่จะลบช่องที่ 1")
+        .addChannelTypes(ChannelType.GuildText)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("channel2")
+        .setDescription("เลือกช่องที่จะลบช่องที่ 2 (ไม่บังคับ)")
+        .addChannelTypes(ChannelType.GuildText)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("channel3")
+        .setDescription("เลือกช่องที่จะลบช่องที่ 3 (ไม่บังคับ)")
+        .addChannelTypes(ChannelType.GuildText)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("channel4")
+        .setDescription("เลือกช่องที่จะลบช่องที่ 4 (ไม่บังคับ)")
+        .addChannelTypes(ChannelType.GuildText)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("channel5")
+        .setDescription("เลือกช่องที่จะลบช่องที่ 5 (ไม่บังคับ)")
+        .addChannelTypes(ChannelType.GuildText)
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   async execute(interaction) {
     if (!interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-      return interaction.reply({
-        content: "⚠️ คุณไม่มีสิทธิ์ใช้คำสั่งนี้",
-        ephemeral: true,
-      });
+      return interaction.reply({ content: "⚠️ คุณไม่มีสิทธิ์ใช้คำสั่งนี้", ephemeral: true });
     }
 
-    // ✅ ดึงห้องข้อความล่าสุด (จำกัด 5)
-    const textChannels = interaction.guild.channels.cache
-      .filter(ch => ch.type === ChannelType.GuildText)
-      .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
-      .first(5);
+    const deleted = [];
+    const failed = [];
 
-    if (!textChannels.length) {
-      return interaction.reply("😕 ไม่มีช่องข้อความให้ลบในตอนนี้");
+    for (let i = 1; i <= 5; i++) {
+      const channel = interaction.options.getChannel(`channel${i}`);
+      if (!channel) continue;
+
+      try {
+        await channel.delete(`Deleted by ${interaction.user.tag}`);
+        deleted.push(`#${channel.name}`);
+      } catch (err) {
+        console.error(err);
+        failed.push(`#${channel.name}`);
+      }
     }
 
-    // ✅ สร้างลิสต์แสดงห้อง
-    let list = textChannels
-      .map((ch, i) => `${i + 1}. #${ch.name}`)
-      .join("\n");
+    let result = "";
+    if (deleted.length) result += `✅ ลบสำเร็จ: ${deleted.join(", ")}\n`;
+    if (failed.length) result += `⚠️ ลบไม่สำเร็จ: ${failed.join(", ")}`;
+    if (!result) result = "⚠️ ไม่มีช่องที่ถูกลบ";
 
-    await interaction.reply({
-      content: `🧹 **เลือกลบช่องที่ต้องการ (สูงสุด 5 ช่อง)**\n\n${list}\n\nพิมพ์หมายเลขช่องที่ต้องการลบ เช่น \`1 3 4\``,
-      ephemeral: false,
-    });
-
-    // ✅ รอข้อความตอบกลับ
-    const filter = m => m.author.id === interaction.user.id;
-    const collector = interaction.channel.createMessageCollector({ filter, time: 20000 });
-
-    collector.on("collect", async msg => {
-      const numbers = msg.content
-        .split(" ")
-        .map(n => parseInt(n))
-        .filter(n => !isNaN(n) && n >= 1 && n <= textChannels.length);
-
-      if (numbers.length === 0) {
-        await msg.reply("⚠️ โปรดพิมพ์หมายเลขช่องให้ถูกต้อง (1–5)");
-        return;
-      }
-
-      const toDelete = numbers.map(n => textChannels[n - 1]);
-      const deleted = [];
-      const failed = [];
-
-      for (const ch of toDelete) {
-        try {
-          await ch.delete(`Deleted by ${interaction.user.tag}`);
-          deleted.push(`#${ch.name}`);
-        } catch (err) {
-          console.error(err);
-          failed.push(`#${ch.name}`);
-        }
-      }
-
-      let result = "";
-      if (deleted.length) result += `✅ ลบสำเร็จ: ${deleted.join(", ")}\n`;
-      if (failed.length) result += `⚠️ ลบไม่สำเร็จ: ${failed.join(", ")}\n`;
-      if (!result) result = "⚠️ ไม่มีช่องใดถูกลบ";
-
-      await msg.reply(result);
-      collector.stop();
-    });
-
-    collector.on("end", collected => {
-      if (!collected.size) {
-        interaction.followUp("⌛ หมดเวลาการเลือกลบช่อง (20 วินาที)");
-      }
-    });
+    await interaction.reply(result);
   },
 };
