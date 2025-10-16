@@ -1,41 +1,40 @@
-const { REST, Routes } = require("discord.js");
-require("dotenv").config();
+const { REST, Routes } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
 
-const { CLIENT_ID, GUILD_ID, TOKEN } = process.env;
-
-// โหลดคำสั่งทั้งหมดจาก /commands
-const fs = require("fs");
-const path = require("path");
 const commands = [];
+const commandsPath = path.join(__dirname, 'commands');
 
-const commandsPath = path.join(__dirname, "commands");
+// ✅ อ่าน commands จากทุกโฟลเดอร์ย่อย (เช่น /role /general /admin)
 for (const folder of fs.readdirSync(commandsPath)) {
   const folderPath = path.join(commandsPath, folder);
-  for (const file of fs.readdirSync(folderPath).filter(f => f.endsWith(".js"))) {
+  const commandFiles = fs.readdirSync(folderPath).filter(file => file.endsWith('.js'));
+
+  for (const file of commandFiles) {
     const command = require(path.join(folderPath, file));
-    if (command.data && command.execute) {
+    if ('data' in command && 'execute' in command) {
       commands.push(command.data.toJSON());
+      console.log(`📜 Loaded command: ${command.data.name}`);
+    } else {
+      console.log(`⚠️ Skipping invalid command file: ${file}`);
     }
   }
 }
 
-const rest = new REST({ version: "10" }).setToken(TOKEN);
+const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 (async () => {
   try {
-    console.log("🧹 Deleting ALL old global commands...");
-    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: [] });
-    console.log("✅ Cleared global commands");
+    console.log('🔁 Refreshing application (/) commands...');
 
-    console.log("🧹 Deleting ALL old guild commands...");
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: [] });
-    console.log("✅ Cleared guild commands");
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      { body: commands },
+    );
 
-    console.log(`🚀 Deploying ${commands.length} new guild commands...`);
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-
-    console.log("🎯 Successfully deployed fresh commands!");
+    console.log('✅ Successfully reloaded application (/) commands.');
   } catch (error) {
-    console.error("❌ Error deploying commands:", error);
+    console.error('❌ Error reloading commands:', error);
   }
 })();
