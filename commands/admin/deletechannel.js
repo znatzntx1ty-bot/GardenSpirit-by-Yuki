@@ -1,4 +1,11 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, StringSelectMenuBuilder, ActionRowBuilder, ComponentType } = require("discord.js");
+const {
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+  ChannelType,
+  StringSelectMenuBuilder,
+  ActionRowBuilder,
+  ComponentType,
+} = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -7,7 +14,6 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   async execute(interaction) {
-    // ตรวจว่าเป็นแอดมินหรือไม่
     if (!interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
       return interaction.reply({
         content: "⚠️ คุณไม่มีสิทธิ์ใช้คำสั่งนี้",
@@ -15,7 +21,6 @@ module.exports = {
       });
     }
 
-    // ดึงรายชื่อช่องข้อความในเซิร์ฟ
     const textChannels = interaction.guild.channels.cache
       .filter(ch => ch.type === ChannelType.GuildText)
       .map(ch => ({
@@ -30,34 +35,41 @@ module.exports = {
       });
     }
 
-    // สร้างเมนูเลือกหลายช่อง
+    // ✅ ตรงนี้คือเมนู dropdown หลายตัวเลือก
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId("deletechannel_select")
       .setPlaceholder("เลือกช่องที่ต้องการลบ (เลือกได้หลายช่อง)")
       .addOptions(textChannels)
       .setMinValues(1)
-      .setMaxValues(Math.min(textChannels.length, 25)); // Discord จำกัดสูงสุด 25 ตัวเลือก
+      .setMaxValues(Math.min(textChannels.length, 25));
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
+    // ✨ ส่ง UI เป็น reply ปกติ (ไม่ ephemeral)
     const replyMsg = await interaction.reply({
-      content: "🧹 โปรดเลือกช่องที่คุณต้องการลบ:",
+      content: "🧹 โปรดเลือกช่องที่คุณต้องการลบ (เลือกได้หลายช่อง):",
       components: [row],
-      ephemeral: true,
+      ephemeral: false,
     });
 
-    // รอการเลือกจากผู้ใช้
     const collector = replyMsg.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
-      time: 60000, // 1 นาที
+      time: 60000,
     });
 
     collector.on("collect", async selectInteraction => {
+      if (selectInteraction.user.id !== interaction.user.id) {
+        return selectInteraction.reply({
+          content: "⚠️ คุณไม่ได้เป็นคนสั่งลบ",
+          ephemeral: true,
+        });
+      }
+
       const selectedIds = selectInteraction.values;
       const deleted = [];
       const failed = [];
 
-      await selectInteraction.deferReply({ ephemeral: true });
+      await selectInteraction.deferReply({ ephemeral: false });
 
       for (const id of selectedIds) {
         const ch = interaction.guild.channels.cache.get(id);
@@ -75,7 +87,6 @@ module.exports = {
       let result = "";
       if (deleted.length > 0) result += `✅ ลบสำเร็จ: ${deleted.join(", ")}\n`;
       if (failed.length > 0) result += `⚠️ ลบไม่สำเร็จ: ${failed.join(", ")}\n`;
-
       if (result === "") result = "⚠️ ไม่มีช่องใดถูกลบ";
 
       await selectInteraction.editReply({
@@ -85,10 +96,12 @@ module.exports = {
     });
 
     collector.on("end", async () => {
-      await replyMsg.edit({
-        components: [],
-        content: "⌛ หมดเวลาการเลือกช่องแล้ว (ใช้ /deletechannel ใหม่เพื่อเริ่มอีกครั้ง)",
-      });
+      try {
+        await replyMsg.edit({
+          components: [],
+          content: "⌛ หมดเวลาการเลือกช่องแล้ว (ใช้ /deletechannel ใหม่เพื่อเริ่มอีกครั้ง)",
+        });
+      } catch (e) {}
     });
   },
 };
