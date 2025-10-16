@@ -1,16 +1,17 @@
 {
   "name": "gardenspirit-by-yuki",
   "version": "1.0.0",
+  "description": "Discord bot for GardenSpirit project",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "deploy": "node deploy-commands.js",
-    "push": "git add . && git commit -m \"auto update\" && git push"
+    "deploy": "node deploy-commands.js"
   },
   "dependencies": {
     "discord.js": "^14.15.3",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "dotenv": "^16.3.1",
+    "express": "^4.19.2",
+    "node-fetch": "^2.6.7"
   }
 }
