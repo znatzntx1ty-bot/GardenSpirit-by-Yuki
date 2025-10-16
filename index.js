@@ -1,26 +1,20 @@
-// 🌸 GardenSpirit by Yuki — Main Bot File
+// 🌸 GardenSpirit-by-Yuki - Stable Render Version
 
 const express = require("express");
-const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
-require("dotenv").config();
+const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
 
-const TOKEN = process.env.TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-
-if (!TOKEN) {
-  console.error("❌ ERROR: Discord Bot Token is missing! Add TOKEN in Render Environment Variables.");
-  process.exit(1);
-}
-
-// 🌐 สร้างเว็บเซิร์ฟเวอร์ให้ Render ตรวจ uptime
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get("/", (req, res) => res.send("🌼 GardenSpirit by Yuki is running 24/7!"));
+
+// 🩷 หน้าเว็บสำหรับ uptime render
+app.get("/", (req, res) => {
+  res.send("🌸 GardenSpirit Bot is running 24/7!");
+});
 app.listen(PORT, () => console.log(`✅ Server is live on port ${PORT}`));
 
-// 🤖 ตั้งค่า Client Discord
+// 🧠 สร้าง client Discord
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -44,14 +38,14 @@ for (const folder of fs.readdirSync(commandsPath)) {
   }
 }
 
-// 🎯 โหลด event ทั้งหมดจาก /events
+// 🎀 โหลด event ทั้งหมดจาก /events
 const eventsPath = path.join(__dirname, "events");
 for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith(".js"))) {
   const eventFile = require(path.join(eventsPath, file));
   if (typeof eventFile === "function") eventFile(client);
 }
 
-// 🚀 Login เข้าบอท
-client.login(TOKEN)
+// 🚀 ล็อกอินเข้า Discord ด้วย TOKEN จาก Render Environment
+client.login(process.env.TOKEN)
   .then(() => console.log("🌸 Logged in as GardenSpirit by Yuki"))
   .catch(err => console.error("❌ Login failed:", err));
