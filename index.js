@@ -1,21 +1,14 @@
-// 🌸 GardenSpirit by Yuki — Admin & Utility Core
-
-const express = require("express");
-const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
+const express = require("express");
+const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// 🌸 หน้าเว็บ uptime
-app.get("/", (req, res) => {
-  res.send("🌸 GardenSpirit by Yuki is running smoothly!");
-});
+app.get("/", (req, res) => res.send("🌸 GardenSpirit by Yuki is running 24/7!"));
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 
-// 🎋 ตั้งค่า Discord Client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -28,7 +21,7 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// 🧩 โหลดคำสั่งทั้งหมดในโฟลเดอร์ /commands
+// โหลดคำสั่งทั้งหมด
 const foldersPath = path.join(__dirname, "commands");
 const commandFolders = fs.readdirSync(foldersPath);
 
@@ -42,60 +35,31 @@ for (const folder of commandFolders) {
     if ("data" in command && "execute" in command) {
       client.commands.set(command.data.name, command);
     } else {
-      console.warn(`⚠️ คำสั่ง ${filePath} ไม่มี data หรือ execute`);
+      console.warn(`⚠️ คำสั่ง ${file} ไม่มี data หรือ execute`);
     }
   }
 }
 
-// 🎯 Event: เมื่อบอทออนไลน์
-client.once("ready", async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-
-  const logChannel =
-    client.channels.cache.find(ch => ch.name === "🌸｜bot-logs") ||
-    client.channels.cache.find(ch => ch.name === "bot-logs");
-
-  if (logChannel) {
-    const now = new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
-    await logChannel.send(`✅ **บอทกลับมาออนไลน์แล้ว!** (${now})`);
-  }
+client.on("ready", () => {
+  console.log(`🌼 Logged in as ${client.user.tag}`);
 });
 
-// ⚙️ Event: เมื่อมี Interaction
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  const command = client.commands.get(interaction.commandName);
-  if (!command) return;
+  const command = interaction.client.commands.get(interaction.commandName);
+  if (!command) return interaction.reply({ content: "❌ ไม่พบคำสั่งนี้!", ephemeral: true });
 
   try {
     await command.execute(interaction);
   } catch (error) {
-    console.error(`❌ Error executing command: ${interaction.commandName}`, error);
-
-    const logChannel =
-      interaction.guild.channels.cache.find(ch => ch.name === "🌸｜bot-logs") ||
-      interaction.guild.channels.cache.find(ch => ch.name === "bot-logs");
-
-    if (logChannel) {
-      await logChannel.send(
-        `⚠️ **เกิดข้อผิดพลาดในคำสั่ง:** \`${interaction.commandName}\`\n\`\`\`${error.message}\`\`\``
-      );
-    }
-
+    console.error(error);
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
-        content: "⚠️ เกิดข้อผิดพลาดในการทำงานของคำสั่งนี้",
-        ephemeral: true,
-      });
+      await interaction.followUp({ content: "⚠️ เกิดข้อผิดพลาด!", ephemeral: true });
     } else {
-      await interaction.reply({
-        content: "⚠️ เกิดข้อผิดพลาดในการทำงานของคำสั่งนี้",
-        ephemeral: true,
-      });
+      await interaction.reply({ content: "⚠️ เกิดข้อผิดพลาด!", ephemeral: true });
     }
   }
 });
 
-// 🔌 Login
-client.login(process.env.TOKEN || "YOUR_RENDER_ENV_TOKEN_HERE");
+client.login(process.env.TOKEN);
