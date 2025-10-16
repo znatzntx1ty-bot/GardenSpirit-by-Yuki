@@ -1,4 +1,11 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require("discord.js");
+const {
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+} = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -29,7 +36,7 @@ module.exports = {
       interaction.options.getChannel("channel1"),
       interaction.options.getChannel("channel2"),
       interaction.options.getChannel("channel3"),
-    ].filter(Boolean); // ลบช่องที่ไม่ได้เลือกออก
+    ].filter(Boolean);
 
     if (!channels.length) {
       return interaction.reply({
@@ -38,7 +45,7 @@ module.exports = {
       });
     }
 
-    // ตรวจสอบสิทธิ์ก่อน
+    // ตรวจสอบสิทธิ์ผู้ใช้
     if (!interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
       return interaction.reply({
         content: "❌ คุณไม่มีสิทธิ์ลบช่องนี้!",
@@ -46,30 +53,71 @@ module.exports = {
       });
     }
 
-    await interaction.reply({
-      content: `⚠️ จะลบช่องเหล่านี้ใน 3 วินาที:\n${channels.map(ch => `• <#${ch.id}>`).join("\n")}`,
+    // ปุ่มยืนยัน
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("confirm_delete")
+        .setLabel("✅ ยืนยันลบ")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId("cancel_delete")
+        .setLabel("❌ ยกเลิก")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    // ส่งข้อความพร้อมปุ่ม
+    const message = await interaction.reply({
+      content: `⚠️ ยืนยันจะลบช่องเหล่านี้ใช่ไหม?\n${channels
+        .map(ch => `• <#${ch.id}>`)
+        .join("\n")}`,
+      components: [row],
       ephemeral: true,
     });
 
-    // หน่วงเวลา 3 วินาทีก่อนลบ
-    setTimeout(async () => {
-      for (const channel of channels) {
-        try {
-          if (channel.type === ChannelType.GuildText) {
-            await channel.delete(`Deleted by ${interaction.user.tag}`);
-            console.log(`🗑️ Deleted channel: ${channel.name}`);
-          } else {
-            console.log(`⚠️ Skipped non-text channel: ${channel.name}`);
-          }
-        } catch (err) {
-          console.error(`❌ Error deleting ${channel.name}:`, err);
-        }
-      }
+    // รอการคลิกปุ่ม 30 วินาที
+    const filter = i =>
+      ["confirm_delete", "cancel_delete"].includes(i.customId) &&
+      i.user.id === interaction.user.id;
 
-      await interaction.followUp({
-        content: `✅ ลบช่องทั้งหมดเรียบร้อยแล้ว!\n${channels.map(ch => `❌ ${ch.name}`).join("\n")}`,
-        ephemeral: true,
-      });
-    }, 3000);
+    const collector = message.createMessageComponentCollector({
+      filter,
+      time: 30000,
+    });
+
+    collector.on("collect", async i => {
+      if (i.customId === "confirm_delete") {
+        for (const channel of channels) {
+          try {
+            if (channel.type === ChannelType.GuildText) {
+              await channel.delete(`Deleted by ${interaction.user.tag}`);
+              console.log(`🗑️ Deleted channel: ${channel.name}`);
+            }
+          } catch (err) {
+            console.error(`❌ Error deleting ${channel.name}:`, err);
+          }
+        }
+
+        await i.update({
+          content: `✅ ลบช่องทั้งหมดเรียบร้อยแล้ว!\n${channels
+            .map(ch => `❌ ${ch.name}`)
+            .join("\n")}`,
+          components: [],
+        });
+      } else {
+        await i.update({
+          content: "❌ ยกเลิกการลบช่องแล้ว!",
+          components: [],
+        });
+      }
+    });
+
+    collector.on("end", async collected => {
+      if (collected.size === 0) {
+        await interaction.editReply({
+          content: "⌛ หมดเวลา ยกเลิกการลบช่องแล้ว",
+          components: [],
+        });
+      }
+    });
   },
 };
