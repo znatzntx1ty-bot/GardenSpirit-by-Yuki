@@ -7,7 +7,8 @@ module.exports = {
   async execute(reaction, user) {
     if (user.bot) return;
 
-    console.log(`🌀 ReactionAdd detected: ${reaction.emoji.name} by ${user.tag}`);
+    // 🧩 Debug log
+    console.log(`🌀 ReactionAdd detected: ${reaction.emoji.name || reaction.emoji.id} by ${user.tag}`);
 
     if (!fs.existsSync(filePath)) {
       console.log("⚠️ reactionRoles.json not found!");
@@ -17,15 +18,23 @@ module.exports = {
     const data = JSON.parse(fs.readFileSync(filePath));
     const guild = reaction.message.guild;
     const member = await guild.members.fetch(user.id);
-    const messageData = data[reaction.message.id];
-    if (!messageData) return;
 
-    const emojiConfig = messageData[reaction.emoji.name];
-    if (!emojiConfig) return;
+    const emojiKey = reaction.emoji.id || reaction.emoji.name;
+    const messageData = data[reaction.message.id];
+    if (!messageData) {
+      console.log(`⚠️ No message config for ${reaction.message.id}`);
+      return;
+    }
+
+    const emojiConfig = messageData[emojiKey];
+    if (!emojiConfig) {
+      console.log(`⚠️ No emoji config for ${emojiKey}`);
+      return;
+    }
 
     const { role, remove } = emojiConfig;
 
-    // 🔸 ลบยศที่ระบุใน remove[]
+    // 🔸 ลบยศที่อยู่ใน remove[]
     for (const r of remove) {
       if (member.roles.cache.has(r)) {
         await member.roles.remove(r);
