@@ -1,47 +1,46 @@
-// 🌸 GardenSpirit Bot - Always Online + Auto Clean + Webhook Notification
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const fetch = require("node-fetch"); // ✅ สำหรับส่ง webhook
-const { Client, GatewayIntentBits, Partials, Collection, EmbedBuilder } = require("discord.js");
 require("dotenv").config();
+const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
+const fs = require("fs");
+const express = require("express");
+const path = require("path");
+const fetch = require("node-fetch");
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// 🧩 ตั้งค่า Webhook สำหรับแจ้งเตือน
+const WEBHOOK_URL = "https://discord.com/api/webhooks/1428472728490606633/yeQhav-QsyFgqDcp0jC445L7FzVSdD-c7B1Q9hn0skVJWqOYmpEzp_2pj2iLECz5848p";
 
-// ✅ Webhook URL ที่จะใช้แจ้งเตือน (เอามาจาก Discord)
-const WEBHOOK_URL = "https://discord.com/api/webhooks/1428472728490606633/yeQhav-QsyFgqDcp0jC445L7FzVSdD-c7B1Q9hn0skVJWqOYmpEzp_2pj2iLECz5848p"; // 🔁 ใส่ของพี่แทนตรงนี้
+// 🌸 สร้าง client Discord
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.MessageContent
+  ],
+  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+});
 
-// ฟังก์ชันส่งแจ้งเตือนผ่าน webhook
-async function sendWebhookNotification(title, description, color = 0x2ecc71) {
-  try {
-    const payload = {
-      embeds: [
-        {
-          title: title,
-          description: description,
-          color: color,
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    };
+client.commands = new Collection();
 
-    await fetch(WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    console.error("❌ ไม่สามารถส่ง webhook ได้:", err);
+// 🌼 โหลดคำสั่ง Slash
+if (fs.existsSync("./commands")) {
+  const commandFolders = fs.readdirSync("./commands");
+  for (const folder of commandFolders) {
+    const files = fs.readdirSync(`./commands/${folder}`).filter(f => f.endsWith(".js"));
+    for (const file of files) {
+      const command = require(`./commands/${folder}/${file}`);
+      client.commands.set(command.data.name, command);
+    }
   }
 }
 
-// ✅ หน้าเว็บหลัก (ให้ UptimeRobot ping)
-app.get("/", (req, res) => {
-  res.send("🌸 GardenSpirit is running 24/7!");
-});
+// 🌿 Express Server (Render)
+const app = express();
 
-// ✅ หน้าเว็บล้าง cache
+// ✅ หน้าเว็บหลักให้ UptimeRobot ping
+app.get("/", (req, res) => res.send("🌸 GardenSpirit is alive!"));
+
+// ✅ หน้าเว็บล้าง Cache
 app.get("/clean", async (req, res) => {
   try {
     const tempDir = "/tmp";
@@ -52,10 +51,23 @@ app.get("/clean", async (req, res) => {
     console.clear();
     console.log("🧹 Cache cleared successfully!");
 
-    await sendWebhookNotification(
-      "🧹 Cache Cleared",
-      `ระบบได้ล้าง cache สำเร็จเมื่อ <t:${Math.floor(Date.now() / 1000)}:R>`
-    );
+    // แจ้งเตือนใน Discord ผ่าน Webhook
+    await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "GardenSpirit Monitor",
+        avatar_url: "https://cdn-icons-png.flaticon.com/512/4144/4144784.png",
+        embeds: [
+          {
+            title: "🧹 Cache Cleared",
+            description: `ระบบได้ล้าง cache สำเร็จเมื่อ <t:${Math.floor(Date.now() / 1000)}:R>`,
+            color: 0x3498db,
+            footer: { text: `เวลา: ${new Date().toLocaleString("th-TH")}` },
+          },
+        ],
+      }),
+    });
 
     res.send("🧹 Cache cleared successfully!");
   } catch (err) {
@@ -64,62 +76,61 @@ app.get("/clean", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(process.env.PORT || 3000, () => console.log("✅ Uptime Server Started"));
 
-// 🧧 ตั้งค่า Discord Client
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-  ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
-});
+// 🚀 เข้าสู่ระบบ Discord
+client.login(process.env.TOKEN);
 
-client.commands = new Collection();
-
-// 📦 โหลดคำสั่ง (ถ้ามีโฟลเดอร์ /commands)
-const fsCommands = fs.readdirSync("./commands", { withFileTypes: true })
-  .filter(dirent => dirent.isDirectory())
-  .map(dirent => dirent.name);
-
-for (const folder of fsCommands) {
-  const commandFiles = fs.readdirSync(`./commands/${folder}`).filter(f => f.endsWith(".js"));
-  for (const file of commandFiles) {
-    const command = require(`./commands/${folder}/${file}`);
-    client.commands.set(command.data.name, command);
-  }
-}
-
-// 🎮 เมื่อบอทพร้อม
+// 💚 แจ้งตอนบอทออนไลน์
 client.once("ready", async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  client.user.setPresence({
-    status: "online",
-    activities: [{ name: "👀 Watching over Garden", type: 0 }],
-  });
-
-  await sendWebhookNotification(
-    "✅ Bot Online",
-    `บอท **${client.user.username}** ออนไลน์แล้วเมื่อ <t:${Math.floor(Date.now() / 1000)}:R>`,
-    0x00ff99
-  );
-});
-
-// 📦 ตอบคำสั่ง Slash
-client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isCommand()) return;
-  const command = client.commands.get(interaction.commandName);
-  if (!command) return;
+  console.log(`✅ ${client.user.tag} is online!`);
 
   try {
-    await command.execute(interaction, client);
-  } catch (error) {
-    console.error(error);
-    await sendWebhookNotification("❌ Error", error.message, 0xff0000);
-    await interaction.reply({ content: "เกิดข้อผิดพลาด!", ephemeral: true });
+    await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "GardenSpirit Monitor",
+        avatar_url: "https://cdn-icons-png.flaticon.com/512/4144/4144784.png",
+        embeds: [
+          {
+            title: "✅ GardenSpirit Bot Online",
+            description: `บอท **${client.user.username}** ออนไลน์แล้วเมื่อ <t:${Math.floor(Date.now() / 1000)}:R>`,
+            color: 0x00ff99,
+            footer: { text: `เวลา: ${new Date().toLocaleString("th-TH")}` },
+          },
+        ],
+      }),
+    });
+  } catch (e) {
+    console.error("ส่ง webhook แจ้งออนไม่สำเร็จ:", e);
   }
 });
 
-client.login(process.env.TOKEN);
+// 💀 แจ้งตอนบอทดับหรือ error
+process.on("uncaughtException", async (err) => {
+  console.error("🚨 บอทเกิดข้อผิดพลาด:", err);
+
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "GardenSpirit Monitor",
+        avatar_url: "https://cdn-icons-png.flaticon.com/512/4144/4144784.png",
+        embeds: [
+          {
+            title: "❌ GardenSpirit Bot Offline",
+            description: `บอท **GardenSpirit by Yuki** ดับหรือหยุดทำงาน!\n\`\`\`${err.message}\`\`\``,
+            color: 0xff0000,
+            footer: { text: `เวลา: ${new Date().toLocaleString("th-TH")}` },
+          },
+        ],
+      }),
+    });
+  } catch (e) {
+    console.error("ส่ง webhook แจ้งดับไม่สำเร็จ:", e);
+  }
+
+  process.exit(1);
+});
