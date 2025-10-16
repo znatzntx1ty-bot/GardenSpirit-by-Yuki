@@ -1,86 +1,68 @@
-// 🌸 GardenSpirit by Yuki - Main Bot File
+// 🌸 GardenSpirit by Yuki - Stable Render Version
 const express = require("express");
-const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  Collection,
-  Events,
-} = require("discord.js");
+const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
-
-// ✅ โหลดค่า TOKEN จาก Render Environment Variable
-const TOKEN = process.env.TOKEN;
-
-// 📦 โหลด config.json (เก็บข้อมูล guild หรืออื่น ๆ)
 const config = require("./config.json");
 
-// 🌐 สร้างเว็บเซิร์ฟเวอร์สำหรับ uptime บน Render
+// สร้าง express server สำหรับ uptime
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get("/", (req, res) => res.send("🌿 GardenSpirit by Yuki is running 24/7!"));
-app.listen(PORT, () =>
-  console.log(`✅ Server is live on port ${PORT}`)
-);
+app.get("/", (req, res) => res.send("🌿 GardenSpirit by Yuki is alive!"));
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 
-// 🤖 สร้าง Client Discord
+// สร้าง client Discord
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.MessageContent,
   ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+  partials: [Partials.Message, Partials.Reaction, Partials.Channel],
 });
 
 client.commands = new Collection();
 
-// 🧩 โหลด Slash Commands ทั้งหมดจากโฟลเดอร์ /commands
+// โหลดคำสั่งทั้งหมดจาก /commands
 const commandsPath = path.join(__dirname, "commands");
 for (const folder of fs.readdirSync(commandsPath)) {
   const folderPath = path.join(commandsPath, folder);
-  for (const file of fs
-    .readdirSync(folderPath)
-    .filter((f) => f.endsWith(".js"))) {
+  for (const file of fs.readdirSync(folderPath).filter(f => f.endsWith(".js"))) {
     const command = require(path.join(folderPath, file));
-    client.commands.set(command.data.name, command);
+    if ("data" in command && "execute" in command) {
+      client.commands.set(command.data.name, command);
+      console.log(`📦 Loaded command: ${command.data.name}`);
+    }
   }
 }
 
-// 🪄 โหลด event ทั้งหมดจากโฟลเดอร์ /events
+// โหลด events ทั้งหมดจาก /events
 const eventsPath = path.join(__dirname, "events");
-for (const file of fs
-  .readdirSync(eventsPath)
-  .filter((f) => f.endsWith(".js"))) {
-  const eventFile = require(path.join(eventsPath, file));
-  if (typeof eventFile === "function") eventFile(client);
+for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith(".js"))) {
+  const event = require(path.join(eventsPath, file));
+  if (event.name && typeof event.execute === "function") {
+    client.on(event.name, (...args) => event.execute(...args, client));
+    console.log(`🎀 Loaded event: ${event.name}`);
+  }
 }
 
-// 🟢 เมื่อบอทพร้อมใช้งาน
-client.once(Events.ClientReady, (readyClient) => {
-  console.log(`🌼 Logged in as ${readyClient.user.tag}!`);
-});
-
-// 💬 เมื่อมีการใช้ Slash Command
-client.on(Events.InteractionCreate, async (interaction) => {
+// Interaction Handler
+client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
-
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
   try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error("❌ Error executing command:", error);
-    await interaction.reply({
-      content: "⚠️ มีบางอย่างผิดพลาดระหว่างรันคำสั่งนี้!",
-      ephemeral: true,
-    });
+    await command.execute(interaction, client);
+  } catch (err) {
+    console.error(err);
+    await interaction.reply({ content: "⚠️ มีข้อผิดพลาดเกิดขึ้น", ephemeral: true });
   }
 });
 
-// 🚀 เข้าสู่ระบบ Discord ด้วย TOKEN จาก Render
-client.login(TOKEN);
+// Login
+client.login(config.token).then(() => {
+  console.log(`🌼 Logged in as ${client.user.tag}`);
+});
