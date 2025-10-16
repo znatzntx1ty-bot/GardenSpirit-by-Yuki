@@ -1,69 +1,68 @@
 // 🌸 GardenSpirit by Yuki - Main Bot File
-
 const express = require("express");
-const { Client, GatewayIntentBits, Partials, Collection, Events } = require("discord.js");
+const {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  Collection,
+  Events,
+} = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
 
-// 🔧 โหลด config (ใช้ตอน deploy commands)
+// โหลด config
 const config = require("./config.json");
 
-// 🌐 สร้างเว็บเซิร์ฟสำหรับ uptime (Render)
+// 🌐 Render uptime server
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get("/", (req, res) => res.send("🌷 GardenSpirit by Yuki is running 24/7!"));
-app.listen(PORT, () => console.log(`✅ Server is live on port ${PORT}`));
+app.get("/", (req, res) => res.send("🌿 GardenSpirit by Yuki is running 24/7!"));
+app.listen(PORT, () =>
+  console.log(`✅ Server is live on port ${PORT}`)
+);
 
-// 🎮 ตั้งค่า Client Discord
+// 🧩 ตั้งค่า Client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.MessageContent,
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
 client.commands = new Collection();
 
-// 📘 โหลดคำสั่งทั้งหมดจากโฟลเดอร์ /commands
+// 📘 โหลดคำสั่งจากโฟลเดอร์ /commands
 const commandsPath = path.join(__dirname, "commands");
 for (const folder of fs.readdirSync(commandsPath)) {
   const folderPath = path.join(commandsPath, folder);
-  for (const file of fs.readdirSync(folderPath).filter(f => f.endsWith(".js"))) {
+  for (const file of fs
+    .readdirSync(folderPath)
+    .filter((f) => f.endsWith(".js"))) {
     const command = require(path.join(folderPath, file));
-    if (command.data && command.execute) {
-      client.commands.set(command.data.name, command);
-      console.log(`📗 Loaded command: ${command.data.name}`);
-    } else {
-      console.warn(`⚠️ Command ${file} is missing data or execute.`);
-    }
+    client.commands.set(command.data.name, command);
   }
 }
 
-// 🎧 โหลด events ทั้งหมดจากโฟลเดอร์ /events
+// 📗 โหลด events ทั้งหมดจากโฟลเดอร์ /events
 const eventsPath = path.join(__dirname, "events");
-const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith(".js"));
-
-for (const file of eventFiles) {
-  const event = require(path.join(eventsPath, file));
-  if (event.once) {
-    client.once(event.name, (...args) => event.execute(...args, client));
-  } else {
-    client.on(event.name, (...args) => event.execute(...args, client));
-  }
-  console.log(`🎀 Loaded event: ${event.name}`);
+for (const file of fs
+  .readdirSync(eventsPath)
+  .filter((f) => f.endsWith(".js"))) {
+  const eventFile = require(path.join(eventsPath, file));
+  if (typeof eventFile === "function") eventFile(client);
 }
 
-// 🚀 Event: บอทออนไลน์
-client.once(Events.ClientReady, (c) => {
-  console.log(`🌼 Logged in as ${c.user.tag}!`);
+// 📢 เมื่อบอทพร้อมใช้งาน
+client.once(Events.ClientReady, (readyClient) => {
+  console.log(`🌼 Logged in as ${readyClient.user.tag}!`);
 });
 
-// ⚙️ Event: ตรวจจับคำสั่ง Slash Command
+// 🧠 ตอบคำสั่ง / (Slash Commands)
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const command = client.commands.get(interaction.commandName);
@@ -72,9 +71,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await command.execute(interaction);
   } catch (error) {
     console.error(error);
-    await interaction.reply({ content: "❌ เกิดข้อผิดพลาดในการรันคำสั่งนี้", ephemeral: true });
+    await interaction.reply({
+      content: "⚠️ มีบางอย่างผิดพลาดระหว่างรันคำสั่งนี้!",
+      ephemeral: true,
+    });
   }
 });
 
-// 🪴 Login เข้าบอท
+// 🔐 เข้าสู่ระบบ Discord
 client.login(process.env.TOKEN);
