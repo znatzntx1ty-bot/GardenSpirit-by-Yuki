@@ -21,8 +21,10 @@ module.exports = {
       });
     }
 
+    // 🧠 ดึงเฉพาะ 25 ห้องแรก เพื่อไม่ให้ Discord พัง
     const textChannels = interaction.guild.channels.cache
       .filter(ch => ch.type === ChannelType.GuildText)
+      .first(25)
       .map(ch => ({
         label: `#${ch.name}`,
         value: ch.id,
@@ -35,17 +37,15 @@ module.exports = {
       });
     }
 
-    // ✅ ตรงนี้คือเมนู dropdown หลายตัวเลือก
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId("deletechannel_select")
       .setPlaceholder("เลือกช่องที่ต้องการลบ (เลือกได้หลายช่อง)")
       .addOptions(textChannels)
       .setMinValues(1)
-      .setMaxValues(Math.min(textChannels.length, 25));
+      .setMaxValues(textChannels.length);
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
-    // ✨ ส่ง UI เป็น reply ปกติ (ไม่ ephemeral)
     const replyMsg = await interaction.reply({
       content: "🧹 โปรดเลือกช่องที่คุณต้องการลบ (เลือกได้หลายช่อง):",
       components: [row],
