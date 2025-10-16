@@ -1,45 +1,75 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("deletechannel")
-    .setDescription("🗑️ ลบช่องที่เลือก (เฉพาะแอดมิน)")
+    .setDescription("🗑️ ลบหลายช่องพร้อมกัน (เฉพาะแอดมิน)")
     .addChannelOption(option =>
       option
-        .setName("channel")
-        .setDescription("เลือกช่องที่ต้องการลบ")
+        .setName("channel1")
+        .setDescription("เลือกช่องที่ต้องการลบช่องแรก")
         .setRequired(true)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("channel2")
+        .setDescription("เลือกช่องที่จะลบเพิ่ม (ไม่บังคับ)")
+        .setRequired(false)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("channel3")
+        .setDescription("เลือกช่องที่จะลบเพิ่ม (ไม่บังคับ)")
+        .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   async execute(interaction) {
-    const channel = interaction.options.getChannel("channel");
+    const channels = [
+      interaction.options.getChannel("channel1"),
+      interaction.options.getChannel("channel2"),
+      interaction.options.getChannel("channel3"),
+    ].filter(Boolean); // ลบช่องที่ไม่ได้เลือกออก
 
-    // ป้องกันไม่ให้บอทลบ category หรือช่อง voice โดยไม่ได้ตั้งใจ
-    if (channel.type !== 0 && channel.type !== 15) {
+    if (!channels.length) {
       return interaction.reply({
-        content: "⚠️ ลบได้เฉพาะช่องข้อความ (Text Channel) เท่านั้น!",
+        content: "⚠️ กรุณาเลือกอย่างน้อย 1 ช่องเพื่อลบ!",
         ephemeral: true,
       });
     }
 
-    // ยืนยันก่อนลบ
+    // ตรวจสอบสิทธิ์ก่อน
+    if (!interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+      return interaction.reply({
+        content: "❌ คุณไม่มีสิทธิ์ลบช่องนี้!",
+        ephemeral: true,
+      });
+    }
+
     await interaction.reply({
-      content: `❓ แน่ใจไหมว่าจะลบช่อง <#${channel.id}> ?\n(ระบบจะลบภายใน 3 วินาที...)`,
+      content: `⚠️ จะลบช่องเหล่านี้ใน 3 วินาที:\n${channels.map(ch => `• <#${ch.id}>`).join("\n")}`,
       ephemeral: true,
     });
 
+    // หน่วงเวลา 3 วินาทีก่อนลบ
     setTimeout(async () => {
-      try {
-        await channel.delete(`Deleted by ${interaction.user.tag}`);
-        console.log(`🗑️ Channel ${channel.name} deleted by ${interaction.user.tag}`);
-      } catch (err) {
-        console.error("❌ Error deleting channel:", err);
-        await interaction.followUp({
-          content: "เกิดข้อผิดพลาดในการลบช่อง ❌",
-          ephemeral: true,
-        });
+      for (const channel of channels) {
+        try {
+          if (channel.type === ChannelType.GuildText) {
+            await channel.delete(`Deleted by ${interaction.user.tag}`);
+            console.log(`🗑️ Deleted channel: ${channel.name}`);
+          } else {
+            console.log(`⚠️ Skipped non-text channel: ${channel.name}`);
+          }
+        } catch (err) {
+          console.error(`❌ Error deleting ${channel.name}:`, err);
+        }
       }
+
+      await interaction.followUp({
+        content: `✅ ลบช่องทั้งหมดเรียบร้อยแล้ว!\n${channels.map(ch => `❌ ${ch.name}`).join("\n")}`,
+        ephemeral: true,
+      });
     }, 3000);
   },
 };
