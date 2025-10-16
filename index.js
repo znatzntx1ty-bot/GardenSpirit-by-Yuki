@@ -1,20 +1,18 @@
-// 🌸 GardenSpirit-by-Yuki - Stable Render Version
-
+// 🌸 GardenSpirit by Yuki
 const express = require("express");
+const { Client, GatewayIntentBits, Partials, Collection, Events } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
-const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const TOKEN = process.env.TOKEN;
 
-// 🩷 หน้าเว็บสำหรับ uptime render
-app.get("/", (req, res) => {
-  res.send("🌸 GardenSpirit Bot is running 24/7!");
-});
-app.listen(PORT, () => console.log(`✅ Server is live on port ${PORT}`));
+app.get("/", (req, res) => res.send("🌼 GardenSpirit by Yuki is running!"));
+app.listen(PORT, () => console.log(`✅ Server is running on port ${PORT}`));
 
-// 🧠 สร้าง client Discord
+// 🌷 สร้าง client Discord
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -26,26 +24,51 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
+// 🌿 โหลดคำสั่งทั้งหมดจาก /commands
 client.commands = new Collection();
-
-// 📦 โหลดคำสั่งทั้งหมดจาก /commands
 const commandsPath = path.join(__dirname, "commands");
 for (const folder of fs.readdirSync(commandsPath)) {
   const folderPath = path.join(commandsPath, folder);
   for (const file of fs.readdirSync(folderPath).filter(f => f.endsWith(".js"))) {
     const command = require(path.join(folderPath, file));
-    client.commands.set(command.data.name, command);
+    if (command.data && command.execute) {
+      client.commands.set(command.data.name, command);
+    }
   }
 }
 
-// 🎀 โหลด event ทั้งหมดจาก /events
+// 🌻 โหลด events ทั้งหมดจาก /events
 const eventsPath = path.join(__dirname, "events");
 for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith(".js"))) {
-  const eventFile = require(path.join(eventsPath, file));
-  if (typeof eventFile === "function") eventFile(client);
+  const event = require(path.join(eventsPath, file));
+  if (event.name && typeof event.execute === "function") {
+    client.on(event.name, (...args) => event.execute(...args));
+  }
 }
 
-// 🚀 ล็อกอินเข้า Discord ด้วย TOKEN จาก Render Environment
-client.login(process.env.TOKEN)
+// 🍀 ฟัง Slash Commands ที่ถูกเรียก
+client.on(Events.InteractionCreate, async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const command = client.commands.get(interaction.commandName);
+  if (!command) {
+    console.error(`❌ Command not found: ${interaction.commandName}`);
+    return;
+  }
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error("⚠️ Error executing command:", error);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: "เกิดข้อผิดพลาดตอนรันคำสั่งนี้ 💥", ephemeral: true });
+    } else {
+      await interaction.reply({ content: "เกิดข้อผิดพลาดตอนรันคำสั่งนี้ 💥", ephemeral: true });
+    }
+  }
+});
+
+// 🪴 เข้าสู่ระบบบอท
+client.login(TOKEN)
   .then(() => console.log("🌸 Logged in as GardenSpirit by Yuki"))
   .catch(err => console.error("❌ Login failed:", err));
