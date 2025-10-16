@@ -1,40 +1,30 @@
-const fs = require("fs");
-const path = require("path");
-const filePath = path.join(__dirname, "../reactionRoles.json");
+const { Events } = require("discord.js");
 
 module.exports = {
-  name: "messageReactionAdd",
+  name: Events.MessageReactionRemove,
   async execute(reaction, user) {
     if (user.bot) return;
 
-    console.log(`🌀 ReactionAdd detected: ${reaction.emoji.name} by ${user.tag}`);
+    console.log(`🌀 ReactionRemove detected: ${reaction.emoji.name} by ${user.tag}`);
 
-    if (!fs.existsSync(filePath)) {
-      console.log("⚠️ reactionRoles.json not found!");
-      return;
-    }
+    const { message, emoji } = reaction;
+    const guild = message.guild;
+    if (!guild) return;
 
-    const data = JSON.parse(fs.readFileSync(filePath));
-    const guild = reaction.message.guild;
+    const roleMap = {
+      "🎮": "1426979381233848320", // ตัวอย่าง
+      "⚔️": "142697971929071626",
+      "😎": "1426980018419925072",
+    };
+
+    const roleId = roleMap[emoji.name];
+    if (!roleId) return;
+
     const member = await guild.members.fetch(user.id);
-    const messageData = data[reaction.message.id];
-    if (!messageData) return;
-
-    const emojiConfig = messageData[reaction.emoji.name];
-    if (!emojiConfig) return;
-
-    const { role, remove } = emojiConfig;
-
-    // 🔸 ลบยศที่ระบุใน remove[]
-    for (const r of remove) {
-      if (member.roles.cache.has(r)) {
-        await member.roles.remove(r);
-        console.log(`🧹 Removed role ${r} from ${user.tag}`);
-      }
+    const role = guild.roles.cache.get(roleId);
+    if (role && member.roles.cache.has(role.id)) {
+      await member.roles.remove(role);
+      console.log(`🧹 Removed role ${role.name} from ${member.user.tag}`);
     }
-
-    // ✅ เพิ่มยศใหม่
-    await member.roles.add(role);
-    console.log(`✅ Added role ${role} to ${user.tag}`);
   },
 };
