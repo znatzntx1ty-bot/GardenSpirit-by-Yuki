@@ -1,55 +1,58 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("deletechannel")
-    .setDescription("🗑️ ลบหลายช่องพร้อมกัน (เฉพาะแอดมิน)")
-    .addStringOption(option =>
+    .setDescription("🗑️ ลบช่องที่เลือก (เฉพาะแอดมิน)")
+    .addChannelOption(option =>
       option
-        .setName("channels")
-        .setDescription("ใส่ชื่อช่องที่ต้องการลบ (คั่นด้วยช่องว่าง เช่น general chat1 chat2)")
+        .setName("channel1")
+        .setDescription("เลือกช่องที่ต้องการลบ (ช่องที่ 1)")
+        .addChannelTypes(ChannelType.GuildText)
         .setRequired(true)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("channel2")
+        .setDescription("เลือกช่องที่ต้องการลบ (ช่องที่ 2, ไม่บังคับ)")
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(false)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("channel3")
+        .setDescription("เลือกช่องที่ต้องการลบ (ช่องที่ 3, ไม่บังคับ)")
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   async execute(interaction) {
-    const input = interaction.options.getString("channels");
-    const channelNames = input.split(/\s+/).map(n => n.trim()).filter(Boolean);
-
-    const deleted = [];
-    const notFound = [];
-    const failed = [];
+    const channels = [
+      interaction.options.getChannel("channel1"),
+      interaction.options.getChannel("channel2"),
+      interaction.options.getChannel("channel3"),
+    ].filter(Boolean);
 
     await interaction.deferReply({ ephemeral: true });
 
-    for (const name of channelNames) {
-      const ch = interaction.guild.channels.cache.find(c => c.name === name);
+    const deleted = [];
+    const failed = [];
 
-      if (!ch) {
-        notFound.push(name);
-        continue;
-      }
-
-      if (ch.type === 4) { // Category
-        failed.push(`${name} (เป็นหมวดหมู่)`);
-        continue;
-      }
-
+    for (const ch of channels) {
       try {
         await ch.delete(`Deleted by ${interaction.user.tag}`);
-        deleted.push(name);
+        deleted.push(`#${ch.name}`);
       } catch (err) {
-        console.error(`❌ ลบ ${name} ไม่ได้:`, err);
-        failed.push(`${name} (${err.message})`);
+        console.error(`❌ ลบ ${ch.name} ไม่ได้:`, err);
+        failed.push(`#${ch.name}`);
       }
     }
 
     let result = "";
-    if (deleted.length) result += `✅ ลบสำเร็จ: ${deleted.join(", ")}\n`;
-    if (notFound.length) result += `❌ ไม่พบช่อง: ${notFound.join(", ")}\n`;
-    if (failed.length) result += `⚠️ ลบไม่สำเร็จ: ${failed.join(", ")}\n`;
-
-    if (!result) result = "⚠️ ไม่มีช่องใดถูกลบ";
+    if (deleted.length > 0) result += `✅ ลบสำเร็จ: ${deleted.join(", ")}\n`;
+    if (failed.length > 0) result += `⚠️ ลบไม่สำเร็จ: ${failed.join(", ")}\n`;
+    if (result === "") result = "⚠️ ไม่มีช่องใดถูกลบ";
 
     await interaction.editReply({ content: result });
   },
