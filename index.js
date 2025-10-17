@@ -1,103 +1,80 @@
-// 🌸 GardenSpirit-by-Yuki (Stable + Command Loader + Auto Uptime)
-const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
+const express = require("express");
+const { Client, Collection, GatewayIntentBits } = require("discord.js");
 const fetch = require("node-fetch");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 🌿 หน้าเว็บเช็กสถานะ
-app.get("/", (req, res) => res.send("🌿 GardenSpirit is alive!"));
-app.get("/status", (req, res) => res.status(200).send("✅ Status OK"));
-app.get("/clearlog", (req, res) => { console.clear(); res.send("🧹 Logs cleared"); });
+// 🌸 หน้าเว็บสำหรับ uptime
+app.get("/", (req, res) => {
+  res.send("🌷 GardenSpirit is blooming and alive!");
+});
 
-// 🌸 เริ่มเซิร์ฟเวอร์
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 
-// 🌼 ตั้งค่า Client Discord
+// 🧠 Discord Client
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-  ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+  intents: [GatewayIntentBits.Guilds],
 });
 
 client.commands = new Collection();
 
-// 🌸 โหลดคำสั่งทั้งหมดจาก /commands
-const commandsPath = path.join(__dirname, "commands");
-if (fs.existsSync(commandsPath)) {
-  const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith(".js"));
-  for (const file of commandFiles) {
-    const command = require(path.join(commandsPath, file));
-    if (command.data && command.execute) {
-      client.commands.set(command.data.name, command);
-      console.log(`🧩 Loaded command: ${command.data.name}`);
+// 📂 โหลดคำสั่งทั้งหมด
+const commandFiles = fs.readdirSync("./commands").filter(file => file.endsWith(".js"));
+for (const file of commandFiles) {
+  const command = require(`./commands/${file}`);
+  if ("data" in command && "execute" in command) {
+    client.commands.set(command.data.name, command);
+  } else {
+    console.log(`⚠️ คำสั่ง ${file} ไม่มี data หรือ execute`);
+  }
+}
+
+// 🌿 เมื่อบอทพร้อม
+client.once("ready", () => {
+  console.log(`🌸 ${client.user.tag} พร้อมทำงานแล้ว!`);
+
+  // 🌈 ระบบปลุกตัวเอง (ฟรี)
+  setInterval(async () => {
+    try {
+      const res = await fetch(`https://${process.env.RENDER_URL || "gardenspirit-by-yuki.onrender.com"}`);
+      console.log(`🔁 Pinged self at ${new Date().toLocaleTimeString()} | Status: ${res.status}`);
+    } catch (err) {
+      console.error("⚠️ Ping failed:", err.message);
     }
-  }
-}
+  }, 5 * 60 * 1000); // ทุก 5 นาที
 
-// 🌸 โหลด events (ถ้ามี)
-const eventsPath = path.join(__dirname, "events");
-if (fs.existsSync(eventsPath)) {
-  const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith(".js"));
-  for (const file of eventFiles) {
-    const event = require(path.join(eventsPath, file));
-    if (event.once) client.once(event.name, (...args) => event.execute(...args, client));
-    else client.on(event.name, (...args) => event.execute(...args, client));
+  // 🚨 แจ้งเตือนบอทออน (Webhook Discord)
+  if (process.env.WEBHOOK_URL) {
+    fetch(process.env.WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: `✅ **${client.user.tag} ออนไลน์แล้ว!** เวลา ${new Date().toLocaleTimeString()}`,
+      }),
+    });
   }
-}
+});
 
-// 🌸 ตอบสนองคำสั่ง Slash
-client.on("interactionCreate", async (interaction) => {
+// ⚙️ ฟังคำสั่ง Slash
+client.on("interactionCreate", async interaction => {
   if (!interaction.isCommand()) return;
+
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
+
   try {
     await command.execute(interaction);
   } catch (error) {
     console.error(error);
-    await interaction.reply({ content: "⚠️ คำสั่งมีปัญหาครับ", ephemeral: true });
+    await interaction.reply({
+      content: "❌ เกิดข้อผิดพลาดในการรันคำสั่งนี้!",
+      ephemeral: true,
+    });
   }
 });
 
-// 🌿 แจ้งเตือนสถานะ
-client.once("ready", () => {
-  console.log(`🌸 Logged in as ${client.user.tag}`);
-  sendWebhook("✅ บอทกลับมาออนไลน์แล้ว 🌿");
-});
-
-// 🌿 ระบบแจ้งเตือน Error
-process.on("unhandledRejection", (error) => {
-  console.error("❌ Unhandled:", error);
-  sendWebhook(`⚠️ บอทมีปัญหา:\n\`\`\`${error.message}\`\`\``);
-});
-process.on("uncaughtException", (error) => {
-  console.error("❌ Crash:", error);
-  sendWebhook(`🚨 บอทล่ม:\n\`\`\`${error.message}\`\`\``);
-});
-
-// 🌿 ระบบกัน Render หลับ (Ping ตัวเองทุก 4 นาที)
-setInterval(() => {
-  fetch("https://gardenspirit-by-yuki.onrender.com").catch(() => {});
-}, 240000);
-
-// 🌿 ฟังก์ชันส่งแจ้งเตือนเข้า Discord
-function sendWebhook(message) {
-  if (!process.env.WEBHOOK_URL) return;
-  fetch(process.env.WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: message }),
-  }).catch(() => {});
-}
-
-// 🌸 เริ่มรันบอท
 client.login(process.env.TOKEN);
