@@ -1,17 +1,21 @@
 {
   "name": "gardenspirit-by-yuki",
-  "version": "1.0.0",
-  "description": "Discord bot for GardenSpirit project",
+  "version": "2.0.0",
+  "description": "🌸 GardenSpirit Discord Bot - Stable version (Uptime + Command Loader + Discord Alert)",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node index.js",
     "deploy": "node deploy-commands.js"
   },
   "dependencies": {
     "discord.js": "^14.15.3",
-    "dotenv": "^16.3.1",
-    "express": "^4.19.2",
-    "node-fetch": "^2.6.7"
-  }
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Yuki",
+  "license": "MIT"
 }
