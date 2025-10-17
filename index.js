@@ -91,6 +91,32 @@ client.on("interactionCreate", async interaction => {
     });
   }
 });
+// 🧩 แจ้งเตือนเมื่อบอทดับหรือรีสตาร์ต
+process.on("exit", async (code) => {
+  if (process.env.WEBHOOK_URL) {
+    await fetch(process.env.WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: `⚠️ **${process.env.BOT_NAME || "GardenSpirit"}** กำลังปิดตัวลง... (Code: ${code})`,
+      }),
+    });
+  }
+});
+
+process.on("uncaughtException", async (err) => {
+  console.error("💥 บอทเจอข้อผิดพลาดรุนแรง:", err);
+  if (process.env.WEBHOOK_URL) {
+    await fetch(process.env.WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: `❌ **${process.env.BOT_NAME || "GardenSpirit"}** ล่มเนื่องจากข้อผิดพลาด:\n\`\`\`${err.message}\`\`\``,
+      }),
+    });
+  }
+  process.exit(1);
+});
 
 // 🚀 เข้าสู่ระบบ
 client.login(process.env.TOKEN);
