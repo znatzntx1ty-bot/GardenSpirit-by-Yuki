@@ -67,15 +67,19 @@ client.once("ready", () => {
   }
 });
 
-// ⏱️ ปลุกตัวเองทุก 5 นาที
+// 🌿 ระบบกันดับ อัปเดตเวอร์ชัน Node v22 ให้ใช้ fetch ที่ build-in แล้ว
 setInterval(async () => {
   try {
-    const res = await fetch(`https://${process.env.RENDER_URL || "gardenspirit-by-yuki.onrender.com"}`);
-    console.log(`📡 Ping self at ${new Date().toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok" })}`);
+    const res = await fetch("https://likely-adey-dakotashop2025-52d00283.koyeb.app/");
+    if (res.ok) {
+      console.log(`💓 Ping self OK at ${new Date().toLocaleTimeString("th-TH")}`);
+    } else {
+      console.error(`⚠️ Ping failed with status ${res.status}`);
+    }
   } catch (err) {
     console.error("⚠️ Ping failed:", err.message);
   }
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000); // ทุก 5 นาที
 
 // 💬 ฟังคำสั่ง Slash
 client.on("interactionCreate", async interaction => {
