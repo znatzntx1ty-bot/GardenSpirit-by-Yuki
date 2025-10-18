@@ -1,4 +1,4 @@
-import fetch from "node-fetch"; // หรือถ้าใช้ require ให้เขียนแบบนี้:
+
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 require("dotenv").config();
 const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
