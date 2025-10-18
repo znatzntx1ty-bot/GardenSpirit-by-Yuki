@@ -1,0 +1,7 @@
+build:
+  languages:
+    - nodejs
+  scripts:
+    - npm install
+run:
+  web: node index.js
