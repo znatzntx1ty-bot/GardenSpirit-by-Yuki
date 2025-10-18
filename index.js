@@ -4,8 +4,6 @@ require("dotenv").config();
 const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
 const fs = require("fs");
 const express = require("express");
-const fetch = require("node-fetch");
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
