@@ -1,3 +1,5 @@
+import fetch from "node-fetch"; // หรือถ้าใช้ require ให้เขียนแบบนี้:
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 require("dotenv").config();
 const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
 const fs = require("fs");
@@ -134,6 +136,10 @@ client.on("shardReconnecting", () => {
 client.on("shardResume", () => {
   console.log("✅ บอทกลับมาเชื่อมต่อเรียบร้อยแล้ว!");
 });
+
+setInterval(() => {
+  fetch("https://gardenspirit-by-yuki.koyeb.app").catch(() => console.log("Ping failed"));
+}, 5 * 60 * 1000); // ping ทุก 5 นาที
 
 // 🚀 เข้าสู่ระบบ
 client.login(process.env.TOKEN);
